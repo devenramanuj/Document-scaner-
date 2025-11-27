@@ -3,41 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>સાદું ડોક્યુમેન્ટ સ્કેનર</title>
+    <title>સ્માર્ટ સ્કેનર - દેવેન્દ્ર રામાનુજ</title>
     <style>
         body {
-            font-family: sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f0f2f5;
             text-align: center;
             margin: 0;
-            padding: 20px;
+            padding-bottom: 80px; /* ફૂટર માટે જગ્યા */
         }
-        h2 { color: #333; }
-        
-        /* કેમેરા અને કેન્વાસ માટેની ડિઝાઈન */
-        #camera-stream, #photo-output {
+        h2 { color: #333; margin-top: 20px; }
+
+        /* કેમેરા કન્ટેનર (જેથી સ્કેન લાઈટ તેની અંદર જ રહે) */
+        .camera-container {
+            position: relative;
             width: 100%;
             max-width: 400px;
+            margin: 0 auto;
             border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden; /* લાઈટ બહાર ન જાય */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        #camera-stream {
+            width: 100%;
+            display: block;
             background-color: #000;
         }
-        
+
+        /* સ્કેનિંગ લાઈટ (ઝેરોક્ષ ઇફેક્ટ) */
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: cyan;
+            box-shadow: 0 0 15px cyan;
+            opacity: 0; /* શરૂઆતમાં દેખાશે નહીં */
+        }
+
+        /* લાઈટનું એનિમેશન */
+        .scanning-animation {
+            opacity: 1;
+            animation: moveLight 2s ease-in-out;
+        }
+
+        @keyframes moveLight {
+            0% { top: 0%; }
+            50% { top: 100%; }
+            100% { top: 0%; opacity: 0; }
+        }
+
         /* બટન ડિઝાઈન */
         button {
             background-color: #007bff;
             color: white;
             border: none;
-            padding: 15px 30px;
+            padding: 15px 40px;
             font-size: 18px;
             border-radius: 50px;
             cursor: pointer;
             margin: 20px 0;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            font-weight: bold;
         }
-        button:active { background-color: #0056b3; }
-        
-        /* કેન્વાસને છુપાવો (આનો ઉપયોગ ખાલી ફોટો પ્રોસેસ કરવા થાય છે) */
+        button:active { background-color: #0056b3; transform: scale(0.98); }
+
+        /* સૂચના ટેક્સ્ટ */
+        .arrow-text {
+            font-size: 18px;
+            color: #d63384;
+            font-weight: bold;
+            margin: 10px 0;
+            display: none; /* ફોટો પડે પછી જ દેખાશે */
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* ફોટો આઉટપુટ */
+        #photo-output {
+            width: 90%;
+            max-width: 380px;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            margin-top: 10px;
+            display: none; /* શરૂઆતમાં છુપાવો */
+        }
+
+        /* ફૂટર ક્રેડિટ */
+        footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 15px 0;
+            font-size: 14px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+        footer span {
+            display: block;
+            font-weight: bold;
+            color: #f1c40f;
+        }
+
         canvas { display: none; }
     </style>
 </head>
@@ -45,51 +122,82 @@
 
     <h2>📑 ડોક્યુમેન્ટ સ્કેનર</h2>
     
-    <video id="camera-stream" autoplay playsinline></video>
+    <div class="camera-container">
+        <video id="camera-stream" autoplay playsinline></video>
+        <div id="scan-bar" class="scan-line"></div>
+    </div>
     
-    <br>
     <button id="scan-btn">📸 Scan Document</button>
     
-    <h3>સ્કેન કરેલો ફોટો:</h3>
-    <img id="photo-output" alt="હજુ સુધી કોઈ સ્કેન નથી" />
+    <div id="result-info" class="arrow-text">
+        ⬇️ Scan થયેલો ફોટો નીચે છે ⬇️
+    </div>
+
+    <img id="photo-output" alt="Scanned Document" />
     
     <canvas id="canvas"></canvas>
+
+    <footer>
+        Developed by <span>Devendra Ramanuj</span>
+        📞 9276505035
+    </footer>
 
     <script>
         const video = document.getElementById('camera-stream');
         const canvas = document.getElementById('canvas');
         const photoOutput = document.getElementById('photo-output');
         const scanBtn = document.getElementById('scan-btn');
+        const scanBar = document.getElementById('scan-bar');
+        const resultInfo = document.getElementById('result-info');
 
-        // ૧. કેમેરા ચાલુ કરવાનું ફંક્શન
+        // ૧. કેમેરા ચાલુ કરો
         async function startCamera() {
             try {
-                // facingMode: 'environment' એટલે પાછળનો કેમેરો
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: 'environment' } 
                 });
                 video.srcObject = stream;
             } catch (error) {
-                alert("કેમેરા ચાલુ કરવામાં સમસ્યા થઈ: " + error.message);
+                alert("કેમેરા એરર: " + error.message);
             }
         }
 
-        // ૨. ફોટો પાડવાનું ફંક્શન
+        // ૨. સ્કેન બટન દબાવતા શું થાય?
         scanBtn.addEventListener('click', () => {
-            // કેન્વાસની સાઈઝ વિડીયો જેટલી સેટ કરો
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            
-            // વિડીયોમાંથી ફોટો ડ્રો કરો
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // ઈમેજ ડેટા URL માં કન્વર્ટ કરો અને બતાવો
-            const dataUrl = canvas.toDataURL('image/png');
-            photoOutput.src = dataUrl;
+            // A. સ્કેનિંગ એનિમેશન ચાલુ કરો
+            scanBar.classList.remove('scanning-animation'); // રીસેટ કરવા
+            void scanBar.offsetWidth; // ટ્રીગર રિફ્લો
+            scanBar.classList.add('scanning-animation');
+
+            // B. બટનને થોડીવાર બંધ કરો
+            scanBtn.disabled = true;
+            scanBtn.innerText = "Scanning...";
+
+            // C. ૧.૫ સેકન્ડ પછી ફોટો પાડો (એનિમેશન પતે એટલે)
+            setTimeout(() => {
+                // ફોટો કેપ્ચર કરો
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // ફોટો બતાવો
+                const dataUrl = canvas.toDataURL('image/png');
+                photoOutput.src = dataUrl;
+                photoOutput.style.display = "block";
+                
+                // ટેક્સ્ટ બતાવો
+                resultInfo.style.display = "block";
+                
+                // સ્ક્રોલ કરીને નીચે લઈ જાઓ
+                resultInfo.scrollIntoView({ behavior: 'smooth' });
+
+                // બટન ફરી ચાલુ કરો
+                scanBtn.disabled = false;
+                scanBtn.innerText = "📸 Scan Document";
+            }, 1500); // ૧.૫ સેકન્ડ નો સમય (Animation ટાઈમ સાથે મેચ થવા)
         });
 
-        // પેજ લોડ થાય એટલે કેમેરા શરૂ કરો
         startCamera();
     </script>
 
