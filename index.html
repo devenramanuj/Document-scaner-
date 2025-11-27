@@ -2,203 +2,301 @@
 <html lang="gu">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>સ્માર્ટ સ્કેનર - દેવેન્દ્ર રામાનુજ</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>પ્રોફેશનલ PDF સ્કેનર</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link  href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+
     <style>
+        /* બેઝિક સ્ટાઇલ */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f0f2f5;
             text-align: center;
             margin: 0;
-            padding-bottom: 80px; /* ફૂટર માટે જગ્યા */
+            padding-bottom: 100px;
+            overscroll-behavior-y: contain; /* પુલ-ટુ-રીફ્રેશ અટકાવવા */
         }
-        h2 { color: #333; margin-top: 20px; }
+        h2 { color: #333; margin: 15px 0; }
 
-        /* કેમેરા કન્ટેનર (જેથી સ્કેન લાઈટ તેની અંદર જ રહે) */
+        /* કેમેરા વિભાગ */
         .camera-container {
             position: relative;
-            width: 100%;
-            max-width: 400px;
+            width: 95%; max-width: 400px;
             margin: 0 auto;
-            border-radius: 10px;
-            overflow: hidden; /* લાઈટ બહાર ન જાય */
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            border-radius: 12px; overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            background: #000;
         }
+        #camera-stream { width: 100%; display: block; }
 
-        #camera-stream {
-            width: 100%;
-            display: block;
-            background-color: #000;
-        }
-
-        /* સ્કેનિંગ લાઈટ (ઝેરોક્ષ ઇફેક્ટ) */
+        /* સ્કેનિંગ એનિમેશન */
         .scan-line {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 5px;
-            background: cyan;
-            box-shadow: 0 0 15px cyan;
-            opacity: 0; /* શરૂઆતમાં દેખાશે નહીં */
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 4px;
+            background: #00f2ff; box-shadow: 0 0 10px #00f2ff;
+            opacity: 0; z-index: 5;
         }
-
-        /* લાઈટનું એનિમેશન */
-        .scanning-animation {
-            opacity: 1;
-            animation: moveLight 2s ease-in-out;
-        }
-
+        .scanning-animation { opacity: 1; animation: moveLight 1.5s ease-in-out; }
         @keyframes moveLight {
-            0% { top: 0%; }
-            50% { top: 100%; }
-            100% { top: 0%; opacity: 0; }
+            0% { top: 0%; } 100% { top: 100%; opacity: 0; }
         }
 
-        /* બટન ડિઝાઈન */
-        button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            font-size: 18px;
-            border-radius: 50px;
-            cursor: pointer;
-            margin: 20px 0;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            font-weight: bold;
+        /* બટનો */
+        .btn-container { margin: 20px 0; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;}
+        .btn {
+            color: white; border: none; padding: 12px 24px;
+            font-size: 16px; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); font-weight: 600;
+            transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center;
         }
-        button:active { background-color: #0056b3; transform: scale(0.98); }
+        .btn:active { transform: scale(0.95); }
+        #scan-btn { background-color: #007bff; }
+        #download-pdf-btn { background-color: #28a745; display: none; /* શરૂઆતમાં છુપાવો */ }
+        #download-pdf-btn.show { display: flex; }
 
-        /* સૂચના ટેક્સ્ટ */
-        .arrow-text {
-            font-size: 18px;
-            color: #d63384;
-            font-weight: bold;
-            margin: 10px 0;
-            display: none; /* ફોટો પડે પછી જ દેખાશે */
-            animation: blink 1.5s infinite;
+        /* પેજ કાઉન્ટર */
+        #page-counter {
+            font-weight: bold; color: #555; margin: 10px 0; display: none;
         }
 
-        @keyframes blink {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+        /* --- ક્રોપિંગ મોડલ (Popup) --- */
+        #crop-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 1000;
+            display: none; flex-direction: column;
         }
-
-        /* ફોટો આઉટપુટ */
-        #photo-output {
-            width: 90%;
-            max-width: 380px;
-            border: 2px solid #ccc;
-            border-radius: 10px;
-            margin-top: 10px;
-            display: none; /* શરૂઆતમાં છુપાવો */
+        .crop-container {
+            flex: 1; width: 100%; background: #333; position: relative;
+            max-height: 80vh; /* સ્ક્રીનની 80% હાઈટ */
         }
+        /* ક્રોપરની ઈમેજ બરાબર ફિટ થાય */
+        #crop-image { max-width: 100%; display: block; } 
+        
+        .modal-buttons {
+            padding: 15px; background: #222; display: flex; gap: 15px; justify-content: center;
+        }
+        .btn-cancel { background-color: #dc3545; }
+        .btn-crop { background-color: #28a745; }
 
-        /* ફૂટર ક્રેડિટ */
+        /* ફૂટર */
         footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background-color: #2c3e50;
-            color: white;
-            text-align: center;
-            padding: 15px 0;
-            font-size: 14px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background-color: #2c3e50; color: #bdc3c7;
+            text-align: center; padding: 12px 0; font-size: 13px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 90;
         }
-        footer span {
-            display: block;
-            font-weight: bold;
-            color: #f1c40f;
-        }
-
+        footer span { font-weight: bold; color: #f1c40f; }
         canvas { display: none; }
     </style>
 </head>
 <body>
 
-    <h2>📑 ડોક્યુમેન્ટ સ્કેનર</h2>
+    <h2>📑 પ્રો સ્કેનર (Multi-Page & Crop)</h2>
     
     <div class="camera-container">
         <video id="camera-stream" autoplay playsinline></video>
         <div id="scan-bar" class="scan-line"></div>
     </div>
     
-    <button id="scan-btn">📸 Scan Document</button>
-    
-    <div id="result-info" class="arrow-text">
-        ⬇️ Scan થયેલો ફોટો નીચે છે ⬇️
+    <div class="btn-container">
+        <button id="scan-btn" class="btn">📸 Scan New Page</button>
+        <button id="download-pdf-btn" class="btn">💾 Download Final PDF</button>
     </div>
 
-    <img id="photo-output" alt="Scanned Document" />
-    
+    <div id="page-counter">હાલમાં 0 પેજ સ્કેન કરેલા છે.</div>
+
     <canvas id="canvas"></canvas>
 
+    <div id="crop-modal">
+        <div class="crop-container">
+            <div><img id="crop-image" src=""></div>
+        </div>
+        <div class="modal-buttons">
+            <button id="cancel-crop-btn" class="btn btn-cancel">❌ Cancel</button>
+            <button id="finish-crop-btn" class="btn btn-crop">✅ Crop & Add Page</button>
+        </div>
+    </div>
+
     <footer>
-        Developed by <span>Devendra Ramanuj</span>
-        📞 9276505035
+        Developed by <span>Devendra Ramanuj</span> | 📞 9276505035
     </footer>
 
     <script>
+        // એલિમેન્ટ્સ મેળવો
         const video = document.getElementById('camera-stream');
         const canvas = document.getElementById('canvas');
-        const photoOutput = document.getElementById('photo-output');
         const scanBtn = document.getElementById('scan-btn');
+        const downloadPdfBtn = document.getElementById('download-pdf-btn');
         const scanBar = document.getElementById('scan-bar');
-        const resultInfo = document.getElementById('result-info');
+        const pageCounter = document.getElementById('page-counter');
+        
+        // મોડલ એલિમેન્ટ્સ
+        const cropModal = document.getElementById('crop-modal');
+        const cropImageEl = document.getElementById('crop-image');
+        const cancelCropBtn = document.getElementById('cancel-crop-btn');
+        const finishCropBtn = document.getElementById('finish-crop-btn');
 
-        // ૧. કેમેરા ચાલુ કરો
+        // સ્ટેટ વેરીએબલ્સ
+        let scannedPagesList = []; // સ્કેન થયેલા બધા પેજ અહીં સ્ટોર થશે
+        let cropper = null; // ક્રોપરનો ઇન્સ્ટન્સ
+
+        // ૧. કેમેરા શરૂ કરો
         async function startCamera() {
             try {
+                // પાછળનો કેમેરો, અને હાઈ રેઝોલ્યુશન માટે પ્રયત્ન કરો
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment' } 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    } 
                 });
                 video.srcObject = stream;
             } catch (error) {
-                alert("કેમેરા એરર: " + error.message);
+                alert("કેમેરા એક્સેસ કરવામાં ભૂલ: " + error.message + "\nકૃપા કરીને HTTPS અથવા localhost નો ઉપયોગ કરો.");
             }
         }
 
-        // ૨. સ્કેન બટન દબાવતા શું થાય?
+        // UI અપડેટ કરવાનું ફંક્શન
+        function updateUI() {
+            const count = scannedPagesList.length;
+            if (count > 0) {
+                pageCounter.style.display = 'block';
+                pageCounter.innerText = `✅ હાલમાં ${count} પેજ તૈયાર છે.`;
+                downloadPdfBtn.classList.add('show'); // PDF બટન બતાવો
+                scanBtn.innerText = "📸 Scan Next Page";
+            } else {
+                pageCounter.style.display = 'none';
+                downloadPdfBtn.classList.remove('show'); // PDF બટન છુપાવો
+                 scanBtn.innerText = "📸 Scan Page";
+            }
+        }
+
+        // ૨. "Scan Page" બટન ક્લિક
         scanBtn.addEventListener('click', () => {
-            // A. સ્કેનિંગ એનિમેશન ચાલુ કરો
-            scanBar.classList.remove('scanning-animation'); // રીસેટ કરવા
-            void scanBar.offsetWidth; // ટ્રીગર રિફ્લો
+            // એનિમેશન ચલાવો
+            scanBar.classList.remove('scanning-animation');
+            void scanBar.offsetWidth; 
             scanBar.classList.add('scanning-animation');
-
-            // B. બટનને થોડીવાર બંધ કરો
             scanBtn.disabled = true;
-            scanBtn.innerText = "Scanning...";
 
-            // C. ૧.૫ સેકન્ડ પછી ફોટો પાડો (એનિમેશન પતે એટલે)
+            // ૧.૨ સેકન્ડ પછી ફોટો કેપ્ચર કરો
             setTimeout(() => {
-                // ફોટો કેપ્ચર કરો
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
-                const context = canvas.getContext('2d');
-                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                canvas.getContext('2d').drawImage(video, 0, 0);
                 
-                // ફોટો બતાવો
-                const dataUrl = canvas.toDataURL('image/png');
-                photoOutput.src = dataUrl;
-                photoOutput.style.display = "block";
+                // ફોટાને ડેટા URL માં ફેરવો
+                const rawImageData = canvas.toDataURL('image/jpeg', 0.9);
                 
-                // ટેક્સ્ટ બતાવો
-                resultInfo.style.display = "block";
+                // ક્રોપિંગ મોડલ ખોલો
+                openCropperModal(rawImageData);
                 
-                // સ્ક્રોલ કરીને નીચે લઈ જાઓ
-                resultInfo.scrollIntoView({ behavior: 'smooth' });
-
-                // બટન ફરી ચાલુ કરો
                 scanBtn.disabled = false;
-                scanBtn.innerText = "📸 Scan Document";
-            }, 1500); // ૧.૫ સેકન્ડ નો સમય (Animation ટાઈમ સાથે મેચ થવા)
+                scanBar.classList.remove('scanning-animation');
+            }, 1200);
         });
 
+        // ૩. ક્રોપર મોડલ ખોલવું અને સેટઅપ કરવું
+        function openCropperModal(imageSrc) {
+            cropImageEl.src = imageSrc;
+            cropModal.style.display = 'flex'; // મોડલ બતાવો
+
+            // જો જૂનું ક્રોપર હોય તો ડિલીટ કરો
+            if (cropper) { cropper.destroy(); }
+
+            // નવું Cropper.js શરૂ કરો
+            cropper = new Cropper(cropImageEl, {
+                viewMode: 1, // ઇમેજ કન્ટેનરની અંદર જ રહે
+                dragMode: 'move', // ફોટો હલાવી શકાય
+                autoCropArea: 0.8, // શરૂઆતમાં 80% સિલેક્ટ કરો
+                movable: true,
+                zoomable: true,
+                scalable: false,
+                rotatable: false,
+            });
+        }
+
+        // ૪. "Cancel Crop" બટન
+        cancelCropBtn.addEventListener('click', () => {
+            cropModal.style.display = 'none'; // મોડલ બંધ કરો
+            if (cropper) { cropper.destroy(); cropper = null; }
+        });
+
+        // ૫. "Crop & Add Page" બટન - (મહત્વનું)
+        finishCropBtn.addEventListener('click', () => {
+            if (!cropper) return;
+
+            // ક્રોપ કરેલો ભાગ મેળવો (Canvas તરીકે)
+            const croppedCanvas = cropper.getCroppedCanvas({
+                maxWidth: 1600, // બહુ મોટી સાઈઝ ન થઈ જાય તે માટે
+                imageSmoothingQuality: 'high',
+            });
+
+            // તેને JPG ઇમેજ ડેટામાં ફેરવો
+            const finalImage = croppedCanvas.toDataURL('image/jpeg', 0.85);
+
+            // આપણા લિસ્ટમાં ઉમેરો
+            scannedPagesList.push(finalImage);
+
+            // મોડલ બંધ કરો અને UI અપડેટ કરો
+            cropModal.style.display = 'none';
+            cropper.destroy(); cropper = null;
+            updateUI();
+
+            // થોડું વાઈબ્રેશન આપો (જો ફોન સપોર્ટ કરે તો)
+            if (navigator.vibrate) navigator.vibrate(50);
+        });
+
+        // ૬. ફાઈનલ "Download PDF" બટન
+        downloadPdfBtn.addEventListener('click', () => {
+            if (scannedPagesList.length === 0) return;
+            
+            downloadPdfBtn.innerText = "Generating PDF...";
+            downloadPdfBtn.disabled = true;
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF(); // A4 સાઈઝ ડિફોલ્ટ
+
+            const pageWidth = 210; // A4 width mm
+            const pageHeight = 297; // A4 height mm
+            const margin = 10;
+
+            // લિસ્ટમાં રહેલા દરેક ફોટા માટે લૂપ ચલાવો
+            scannedPagesList.forEach((imgData, index) => {
+                // જો પહેલું પેજ ન હોય, તો નવું પેજ ઉમેરો
+                if (index > 0) {
+                    doc.addPage();
+                }
+
+                // ઇમેજ પ્રોપર્ટીઝ મેળવો (aspect ratio જાણવા માટે)
+                const imgProps = doc.getImageProperties(imgData);
+                const pdfImgWidth = pageWidth - (margin * 2);
+                const pdfImgHeight = (imgProps.height * pdfImgWidth) / imgProps.width;
+
+                // ઇમેજને PDF માં ઉમેરો (x, y, width, height)
+                doc.addImage(imgData, 'JPEG', margin, margin, pdfImgWidth, pdfImgHeight);
+                
+                doc.setFontSize(10);
+                doc.text(`Page ${index + 1}`, pageWidth / 2, pageHeight - 5, { align: 'center' });
+            });
+
+            // PDF સેવ કરો
+            const timestamp = new Date().getTime();
+            doc.save(`Document_Scan_${timestamp}.pdf`);
+
+            // રીસેટ કરો
+            downloadPdfBtn.innerText = "💾 Download Final PDF";
+            downloadPdfBtn.disabled = false;
+        });
+
+        // એપ્લિકેશન શરૂ કરો
         startCamera();
+        updateUI();
     </script>
 
 </body>
