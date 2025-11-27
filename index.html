@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>સાદું ડોક્યુમેન્ટ સ્કેનર</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f0f2f5;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h2 { color: #333; }
+        
+        /* કેમેરા અને કેન્વાસ માટેની ડિઝાઈન */
+        #camera-stream, #photo-output {
+            width: 100%;
+            max-width: 400px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            background-color: #000;
+        }
+        
+        /* બટન ડિઝાઈન */
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        button:active { background-color: #0056b3; }
+        
+        /* કેન્વાસને છુપાવો (આનો ઉપયોગ ખાલી ફોટો પ્રોસેસ કરવા થાય છે) */
+        canvas { display: none; }
+    </style>
+</head>
+<body>
+
+    <h2>📑 ડોક્યુમેન્ટ સ્કેનર</h2>
+    
+    <video id="camera-stream" autoplay playsinline></video>
+    
+    <br>
+    <button id="scan-btn">📸 Scan Document</button>
+    
+    <h3>સ્કેન કરેલો ફોટો:</h3>
+    <img id="photo-output" alt="હજુ સુધી કોઈ સ્કેન નથી" />
+    
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const video = document.getElementById('camera-stream');
+        const canvas = document.getElementById('canvas');
+        const photoOutput = document.getElementById('photo-output');
+        const scanBtn = document.getElementById('scan-btn');
+
+        // ૧. કેમેરા ચાલુ કરવાનું ફંક્શન
+        async function startCamera() {
+            try {
+                // facingMode: 'environment' એટલે પાછળનો કેમેરો
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment' } 
+                });
+                video.srcObject = stream;
+            } catch (error) {
+                alert("કેમેરા ચાલુ કરવામાં સમસ્યા થઈ: " + error.message);
+            }
+        }
+
+        // ૨. ફોટો પાડવાનું ફંક્શન
+        scanBtn.addEventListener('click', () => {
+            // કેન્વાસની સાઈઝ વિડીયો જેટલી સેટ કરો
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // વિડીયોમાંથી ફોટો ડ્રો કરો
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // ઈમેજ ડેટા URL માં કન્વર્ટ કરો અને બતાવો
+            const dataUrl = canvas.toDataURL('image/png');
+            photoOutput.src = dataUrl;
+        });
+
+        // પેજ લોડ થાય એટલે કેમેરા શરૂ કરો
+        startCamera();
+    </script>
+
+</body>
+</html>
